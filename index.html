@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<link rel="stylesheet" href="static/styles/game.css" type="text/css" charset="utf-8" />
+		<link rel="icon" href="favicon.ico" type="image/x-icon" />
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>Python Chess</title>
+		<script src="static/scripts/gc.js"></script>
+		<script src="static/scripts/game.js"></script>
+	</head>
+	<body>
+		<div class="lpanel">
+			<div id="lside_2" class="left" style="display: none;">
+				<div class="side_m">
+					<div class="noselect">Game session ID:</div>
+					<div id="wsid" class="gbox"></div>
+				</div>
+				<div class="bigtop">
+					<div class="side_m">
+						Move <span id="move_index">0</span> of <span id="moves_count">0</span>
+					</div>
+					<div>
+						<input type="button" id="prev" value="<">
+						<span>Move</span>
+						<input type="button" id="next" value=">">
+					</div>
+				</div>
+				<div class="bigtop">
+					<div class="side_m">
+						<input type="button" id="quit_h" value="Quit session">
+					</div>
+				</div>
+			</div>
+			<div id="lside_1" class="left" style="display: none;">
+				<div class="side_m">
+					<div class="noselect">Game session ID:</div>
+					<div id="gsid" class="gbox"></div>
+					<div class="bigtop" style="">
+  						Now is <span id="turn"></span> turn
+  					</div>
+					<div class="bigtop">
+						<div class="side_m noselect">Your name:</div>
+						<div id="uname" class="gbox"></div>
+					</div>
+					<div class="bigtop">
+						<div class="side_m noselect">Opponent's name:</div>
+						<div id="oname" class="gbox">&nbsp;</div>
+					</div>
+				</div>
+				<div class="bigtop">
+					<div class="side_m">
+						<input type="button" id="quit" value="Quit session">
+					</div>
+				</div>
+			</div>
+			<div id="lside_0" class="left">
+				<div class="side_m noselect">Choose username:</div>
+				<div class="side_m">
+					<input class="field" type="text" id="name" placeholder="Username">
+				</div>
+				<div class="bigtop">
+					<div class="side_m noselect">
+						And connect to random user (if exists)
+					</div>
+					<div class="side_m">
+						<input class="button" type="button" id="connect_rnd" value="Connect to random user">
+					</div>
+				</div>
+				<div class="bigtop">
+					<div class="side_m noselect">
+						Or wait for your friend:
+					</div>
+					<div class="side_m">
+						<input class="button" type="button" id="wait" value="Wait">
+					</div>
+				</div>
+				<div class="bigtop">
+					<div class="side_m noselect">
+						Or input game session ID and connect:
+					</div>
+					<div class="side_m">
+						<input class="field" type="text" id="sid_in" placeholder="Game session ID">
+					</div>
+					<div class="side_m">
+						<input class="button" type="button" id="conn_to" value="Connect to game">
+					</div>
+					<div class="side_m">
+						<input class="button" type="button" id="conn_past" value="Load past game">
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="main">
+			<div class="board noselect">
+				<div id="draw_offer" style="display: none;">
+					<div>Your opponent is offering you a draw</div>
+					<div class="draw_btns">
+						<input class="draw_btn" id="accept_draw" value="Accept" type="button">
+						<input class="draw_btn" id="deny_draw" value="Deny" type="button">
+					</div>
+				</div>
+				<canvas id="grid">No canvas support</canvas>
+			</div>
+		</div>
+		<div class="rpanel">
+			<div class="right">
+				<div class="side_m noselect">Connection status:</div>
+				<div id="conn_status" class="side_m status noselect" style="color: red;">Disconnected from the server...</div>
+				<div class="bigtop noselect">
+					<div class="side_m">Game status:</div>
+					<div id="game_status" class="side_m status" style="color: red;">Inactive...</div>
+				</div>
+				<div class="bigtop">
+					<input id="offer_draw" type="button" value="Offer draw" style="display: none;">
+					<div id="offer_notification"></div>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
