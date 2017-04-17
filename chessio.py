@@ -9,11 +9,14 @@ def dump_session(session):
     conn.commit()
     conn.close()
 
-#TODO: handle non existing session id
 def load_history(sid):
     conn = sqlite3.connect(DB_PATH)
     curs = conn.cursor()
     curs.execute('SELECT moves FROM games WHERE sid = ?', [sid])
-    moves = json.loads(curs.fetchall()[0][0])
+    found = curs.fetchall()
+    if found:
+        moves = json.loads(curs.fetchall()[0][0])
+    else:
+        moves = []
     conn.close()
     return moves
