@@ -15,7 +15,7 @@ def load_history(sid):
     curs.execute('SELECT moves FROM games WHERE sid = ?', [sid])
     found = curs.fetchall()
     if found:
-        moves = json.loads(curs.fetchall()[0][0])
+        moves = json.loads(found[0][0])
     else:
         moves = []
     conn.close()

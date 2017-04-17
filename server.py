@@ -82,11 +82,17 @@ class IndexHandler(web.RequestHandler):
         self.render("index.html")
 
 class SocketHandler(websocket.WebSocketHandler):
-    def check_origin(self, origin):
-        return True
-
-    def open(self):
-        pass
+    def __init__(self, application, request, **kwargs):
+        super(SocketHandler, self).__init__(application, request, **kwargs)
+        self.actions = {'conn_rnd': self.conn_rnd,
+                        'wait_for': self.wait_for,
+                        'conn_to': self.conn_to,
+                        'quit': self.quit,
+                        'get_paths': self.get_paths,
+                        'make_move': self.make_move,
+                        'offer_draw': self.offer_draw,
+                        'offer_response': self.offer_response,
+                        'load_past_game': self.load_past_game}
 
     def on_close(self):
         self.quit_session('disconnect', False)
@@ -95,129 +101,119 @@ class SocketHandler(websocket.WebSocketHandler):
         try:
             data = json.loads(message)
             action = data['action']
-            if action == 'conn_rnd':
-                if 'name' not in data:
-                    return
-                uname = data['name']
-                if not self.is_valid(uname):
-                    return self.invalid_name(action, 'inv_uname')
-                for sid, session in sessions.items():
-                    if len(session) == 1 and session.rnd:
-                        session.rnd = False
-                        self.connect_to_session(session, sid, uname, 'conn_rnd', 'connected')
-                        return
-                session = self.create_session(uname, True)
-                msg = {"action": "conn_rnd", "status": "wait", "sid": session.sid}
-                self.write_message(json.dumps(msg))
-                clients[self] = session
-            elif action == 'wait_for':
-                if 'name' not in data:
-                    return
-                uname = data['name']
-                if not self.is_valid(uname):
-                    return self.invalid_name(action, 'inv_uname')
-                session = self.create_session(uname, False)
-                msg = {"action": "wait_for", "status": "ok", "sid": session.sid}
-                self.write_message(json.dumps(msg))
-                clients[self] = session
-            elif action == 'conn_to':
-                if 'sid' not in data or 'name' not in data:
-                    return
-                uname = data['name']
-                if not self.is_valid(uname):
-                    return self.invalid_name('conn_to', 'inv_uname')
-                sid = data['sid']
-                msg = {"action": "conn_to", "status": "not_found"}
-                if sid not in sessions:
-                    self.write_message(json.dumps(msg))
-                    return
-                session = sessions[sid]
-                if not session.active:
-                    self.write_message(json.dumps(msg))
-                    return
-                if len(session) == 1:
-                    session.rnd = False
-                    self.connect_to_session(session, sid, uname, 'conn_to', 'ok')
-                else:
-                    msg['status'] = 'busy'
-                    self.write_message(json.dumps(msg))
-            elif action == 'quit':
-                self.quit_session('quit', True)
-            elif action == 'get_paths':
-                if self not in clients:
-                    return
-                if not clients[self].active:
-                    return
-                cx = data['cx']
-                cy = data['cy']
-                board = clients[self].board
-                paths = board.get_paths(board.grid, cx, cy)
-                msg = {"action": "get_paths", "paths": paths}
-                self.write_message(json.dumps(msg))
-            elif action == 'make_move':
-                if self not in clients:
-                    return
-                session = clients[self]
-                if len(session) != 2 or session.users[session.turn] != self or not session.active:
-                    return
-                f = data['from']
-                t = data['to']
-                if not session.board.is_move_valid(f, t, session.turn == 0):
-                    return
-                self.make_move(f, t, session)
-            elif action == 'offer_draw':
-                if self not in clients:
-                    return
-                session = clients[self]
-                if len(session) != 2 or not session.active:
-                    return
-                session.draw_offered = True
-                msg1 = {"action": "offer_draw"}
-                session.get_opposite(self).write_message(json.dumps(msg1))
-                msg2 = {"action": "offer_sent"}
-                self.write_message(json.dumps(msg2))
-            elif action == 'offer_response':
-                if self not in clients:
-                    return
-                session = clients[self]
-                if not session.draw_offered or not session.active:
-                    return
-                resp = data['status']
-                msg1 = {"action": "offer_response", "status": resp}
-                msg2 = {"action": "offer_received", "status": resp}
-                if resp == 'accept' or resp == 'deny':
-                    self.write_message(json.dumps(msg2))
-                    session.get_opposite(self).write_message(json.dumps(msg1))
-                    if resp == 'accept':
-                        session.active = False
-            elif action == 'load_past_game':
-                if 'sid' not in data:
-                    return
-                moves = chessio.load_history(data['sid'])
-                if moves:
-                    msg = {"action": "load_past_game", "status": "ok", "moves": moves}
-                    self.write_message(json.dumps(msg))
-                else:
-                    msg = {"action": "load_past_game", "status": "failed"}
-                    self.write_message(json.dumps(msg))
+            if action in self.actions:
+                self.actions[action](data)
             else:
                 raise WrongMessageException()
         except WrongMessageException:
             print('[Chess Logger] Wrong message...')
 
-    def quit_session(self, action, close):
-        if self in clients:
-            session = clients[self]
-            session.remove_user(self)
-            if len(session) == 1 and session.active:
-                msg = {"action": action}
-                session.get_euser().write_message(json.dumps(msg))
-            if close:
+    def conn_rnd(self, data):
+        if 'name' not in data:
+            return
+        uname = data['name']
+        if not self.is_valid(uname):
+            return self.invalid_name(action, 'inv_uname')
+        for sid, session in sessions.items():
+            if len(session) == 1 and session.rnd:
+                session.rnd = False
+                self.connect_to_session(session, sid, uname, 'conn_rnd', 'connected')
+                return
+        session = self.create_session(uname, True)
+        msg = {"action": "conn_rnd", "status": "wait", "sid": session.sid}
+        self.write_message(json.dumps(msg))
+        clients[self] = session
+
+    def wait_for(self, data):
+        if 'name' not in data:
+            return
+        uname = data['name']
+        if not self.is_valid(uname):
+            return self.invalid_name(action, 'inv_uname')
+        session = self.create_session(uname, False)
+        msg = {"action": "wait_for", "status": "ok", "sid": session.sid}
+        self.write_message(json.dumps(msg))
+        clients[self] = session
+
+    def conn_to(self, data):
+        if 'sid' not in data or 'name' not in data:
+            return
+        uname = data['name']
+        if not self.is_valid(uname):
+            return self.invalid_name('conn_to', 'inv_uname')
+        sid = data['sid']
+        msg = {"action": "conn_to", "status": "not_found"}
+        if sid not in sessions:
+            self.write_message(json.dumps(msg))
+            return
+        session = sessions[sid]
+        if not session.active:
+            self.write_message(json.dumps(msg))
+            return
+        if len(session) == 1:
+            session.rnd = False
+            self.connect_to_session(session, sid, uname, 'conn_to', 'ok')
+        else:
+            msg['status'] = 'busy'
+            self.write_message(json.dumps(msg))
+
+    def quit(self, data):
+        self.quit_session('quit', True)
+
+    def get_paths(self, data):
+        if self in clients and clients[self].active:
+            board = clients[self].board
+            paths = board.get_paths(board.grid, data['cx'], data['cy'])
+            msg = {"action": "get_paths", "paths": paths}
+            self.write_message(json.dumps(msg))
+
+    def make_move(self, data):
+        if self not in clients:
+            return
+        session = clients[self]
+        if len(session) != 2 or session.users[session.turn] != self or not session.active:
+            return
+        f = data['from']
+        t = data['to']
+        if session.board.is_move_valid(f, t, session.turn == 0):
+            self._make_move(f, t, session)
+
+    def offer_draw(self, data):
+        if self not in clients:
+            return
+        session = clients[self]
+        if len(session) != 2 or not session.active:
+            return
+        session.draw_offered = True
+        msg1 = {"action": "offer_draw"}
+        session.get_opposite(self).write_message(json.dumps(msg1))
+        msg2 = {"action": "offer_sent"}
+        self.write_message(json.dumps(msg2))
+
+    def offer_response(self, data):
+        if self not in clients:
+            return
+        session = clients[self]
+        if not session.draw_offered or not session.active:
+            return
+        resp = data['status']
+        msg1 = {"action": "offer_response", "status": resp}
+        msg2 = {"action": "offer_received", "status": resp}
+        if resp == 'accept' or resp == 'deny':
+            self.write_message(json.dumps(msg2))
+            session.get_opposite(self).write_message(json.dumps(msg1))
+            if resp == 'accept':
                 session.active = False
-            if len(session) == 0:
-                session.active = False
-                del sessions[session.sid]
-            del clients[self]
+
+    def load_past_game(self, data):
+        if 'sid' not in data:
+            return
+        moves = chessio.load_history(data['sid'])
+        if moves:
+            msg = {"action": "load_past_game", "status": "ok", "moves": moves}
+        else:
+            msg = {"action": "load_past_game", "status": "failed"}
+        self.write_message(json.dumps(msg))
 
     def create_session(self, uname, rnd):
         sid = self.generate_sid(uname)
@@ -236,7 +232,21 @@ class SocketHandler(websocket.WebSocketHandler):
         self.write_message(json.dumps(msg))
         clients[self] = session
 
-    def make_move(self, f, t, session):
+    def quit_session(self, action, close):
+        if self in clients:
+            session = clients[self]
+            session.remove_user(self)
+            if len(session) == 1 and session.active:
+                msg = {"action": action}
+                session.get_euser().write_message(json.dumps(msg))
+            if close:
+                session.active = False
+            if len(session) == 0:
+                session.active = False
+                del sessions[session.sid]
+            del clients[self]
+
+    def _make_move(self, f, t, session):
         killed = None
         cell = session.board.grid[t[1]][t[0]]
         if cell.figure != -1:

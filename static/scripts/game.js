@@ -174,29 +174,29 @@ function setTurn(t) {
 }
 
 function fade(element) {
-    var op = 1;  // initial opacity
-    var timer = setInterval(function () {
-        if (op <= 0.1){
-            clearInterval(timer);
-            element.style.display = 'none';
-        }
-        element.style.opacity = op;
-        element.style.filter = 'alpha(opacity=' + op * 100 + ")";
-        op -= op * 0.1;
-    }, 50);
+	var op = 1;  // initial opacity
+	var timer = setInterval(function () {
+		if (op <= 0.1){
+			clearInterval(timer);
+			element.style.display = 'none';
+		}
+		element.style.opacity = op;
+		element.style.filter = 'alpha(opacity=' + op * 100 + ")";
+		op -= op * 0.1;
+	}, 50);
 }
 
 function unfade(element) {
-    var op = 0.1;  // initial opacity
-    element.style.display = 'block';
-    var timer = setInterval(function () {
-        if (op >= 1){
-            clearInterval(timer);
-        }
-        element.style.opacity = op;
-        element.style.filter = 'alpha(opacity=' + op * 100 + ")";
-        op += op * 0.1;
-    }, 10);
+	var op = 0.1;  // initial opacity
+	element.style.display = 'block';
+	var timer = setInterval(function () {
+		if (op >= 1){
+			clearInterval(timer);
+		}
+		element.style.opacity = op;
+		element.style.filter = 'alpha(opacity=' + op * 100 + ")";
+		op += op * 0.1;
+	}, 10);
 }
 
 function onConnect() {
@@ -317,170 +317,200 @@ function onConnect() {
 	checkSessionStorage();
 }
 
+var actions = {disconnect: function(response) {setStatus("game", "Your opponent has disconnected. Waiting for reconnection...", "#CF0");},
+			   quit: function(response) {setStatus("game", "Your opponent has left the game. You win!", "#006F00", "bold");},
+			   conn_rnd: conn_rnd,
+			   wait_for: wait_for,
+			   conn_to: conn_to,
+			   peer_conn: peer_conn,
+			   get_paths: get_paths,
+			   make_move: make_move,
+			   offer_draw: function(response) {document.getElementById("draw_offer").style.display = "";},
+			   offer_sent: offer_sent,
+			   offer_response: offer_response,
+			   offer_received: offer_received,
+			   load_past_game: load_past_game};
+
 function onMessage(ev) {
 	var response = JSON.parse(ev.data);
-	if (response.action == "disconnect") {
-		setStatus("game", "Your opponent has disconnected. Waiting for reconnection...", "#CF0");
-	} else if (response.action == "quit") {
-		setStatus("game", "Your opponent has left the game. You win!", "#006F00", "bold");
-	} else if (response.action == "conn_rnd") {
-		if (response.status == "connected") {
-			sid = response.sid;
-			sessionStorage.setItem("sid", sid);
-			sessionStorage.setItem("uname", document.getElementById("name").value);
-			setLeftPanelContent(1);
-			started = true;
-			gc.post_deserialize(response.board);
-			w = response.w;
-			setTurn(response.turn);
-			setName("oname", response.name);
-			setStatus("game", "Ingame", "#006F00");
-		} else if (response.status == "wait") {
-			sid = response.sid;
-			sessionStorage.setItem("sid", sid);
-			sessionStorage.setItem("uname", document.getElementById("name").value);
-			setLeftPanelContent(1);
-			w = true;
-			setTurn(true);
-			setStatus("game", "Waiting for opponent...", "#CF0");
-		} else if (response.status == "inv_uname") {
-			alert("Your name contains invalid characters!");
-		}
-	} else if (response.action == "wait_for") {
-		if (response.status == "ok") {
-			sid = response.sid;
-			sessionStorage.setItem("sid", sid);
-			sessionStorage.setItem("uname", document.getElementById("name").value);
-			setLeftPanelContent(1);
-			w = true;
-			setTurn(true);
-			setStatus("game", "Waiting for opponent...", "#CF0");
-		} else if (response.status == "inv_uname") {
-			alert("Your name contains invalid characters!");
-		}
-	} else if (response.action == "conn_to") {
-		if (response.status == "ok") {
-			sid = response.sid;
-			sessionStorage.setItem("sid", sid);
-			if (sessionStorage.getItem("uname") == null)
-				sessionStorage.setItem("uname", document.getElementById("name").value);
-			else
-				document.getElementById("name").value = sessionStorage.getItem("uname");
-			setLeftPanelContent(1);
-			started = true;
-			var chk = gc.post_deserialize(response.board);
-			w = response.w;
-			setTurn(response.turn);
-			checked = chk;
-			setName("oname", response.name);
-			setStatus("game", "Ingame", "#006F00");
-			from = sessionStorage.getItem("lm_from");
-			to = sessionStorage.getItem("lm_to");
-			if (from != null && to != null) {
-				from = from.split(",").map(function(n) {return parseInt(n)-1});
-				to = to.split(",").map(function(n) {return parseInt(n)-1});
-				from = gc.getCell(from[0], from[1]);
-				to = gc.getCell(to[0], to[1]);
-				setLastMove(from, to);
-			}
-		} else if (sessionStorage.getItem("sid") != null) {
-			sessionStorage.removeItem("sid");
-			sessionStorage.removeItem("uname");
-			remLastMove();
-		} else if (response.status == "inv_uname") {
-			alert("Your name contains invalid characters!");
-		} else if (response.status == "not_found") {
-			alert("Game with given session ID not found...");
-		} else if (response.status == "busy") {
-			alert("This game is busy...");
-		}
-	} else if (response.action == "peer_conn") {
-		if (!started) startGame();
+	if (actions.hasOwnProperty(response.action))
+		actions[response.action](response);
+}
+
+function conn_rnd(response) {
+	if (response.status == "connected") {
+		sid = response.sid;
+		sessionStorage.setItem("sid", sid);
+		sessionStorage.setItem("uname", document.getElementById("name").value);
+		setLeftPanelContent(1);
+		started = true;
+		gc.post_deserialize(response.board);
+		w = response.w;
+		setTurn(response.turn);
 		setName("oname", response.name);
 		setStatus("game", "Ingame", "#006F00");
-	} else if (response.action == "get_paths") {
-		var paths = response.paths;
-		for (path of paths) {
-			var c = gc.getCell(path[0], path[1]);
-			c.makeActive("#520FFF");
-			affected.push(c);
+	} else if (response.status == "wait") {
+		sid = response.sid;
+		sessionStorage.setItem("sid", sid);
+		sessionStorage.setItem("uname", document.getElementById("name").value);
+		setLeftPanelContent(1);
+		w = true;
+		setTurn(true);
+		setStatus("game", "Waiting for opponent...", "#CF0");
+	} else if (response.status == "inv_uname") {
+		alert("Your name contains invalid characters!");
+	}
+}
+
+function wait_for(response) {
+	if (response.status == "ok") {
+		sid = response.sid;
+		sessionStorage.setItem("sid", sid);
+		sessionStorage.setItem("uname", document.getElementById("name").value);
+		setLeftPanelContent(1);
+		w = true;
+		setTurn(true);
+		setStatus("game", "Waiting for opponent...", "#CF0");
+	} else if (response.status == "inv_uname") {
+		alert("Your name contains invalid characters!");
+	}
+}
+
+function conn_to(response) {
+	if (response.status == "ok") {
+		sid = response.sid;
+		sessionStorage.setItem("sid", sid);
+		if (sessionStorage.getItem("uname") == null)
+			sessionStorage.setItem("uname", document.getElementById("name").value);
+		else
+			document.getElementById("name").value = sessionStorage.getItem("uname");
+		setLeftPanelContent(1);
+		started = true;
+		var chk = gc.post_deserialize(response.board);
+		w = response.w;
+		setTurn(response.turn);
+		checked = chk;
+		setName("oname", response.name);
+		setStatus("game", "Ingame", "#006F00");
+		from = sessionStorage.getItem("lm_from");
+		to = sessionStorage.getItem("lm_to");
+		if (from != null && to != null) {
+			from = from.split(",").map(function(n) {return parseInt(n)-1});
+			to = to.split(",").map(function(n) {return parseInt(n)-1});
+			from = gc.getCell(from[0], from[1]);
+			to = gc.getCell(to[0], to[1]);
+			setLastMove(from, to);
 		}
-	} else if (response.action == "make_move") {
-		var cx0 = response.from[0];
-		var cy0 = response.from[1];
-		var cx1 = response.to[0];
-		var cy1 = response.to[1];
-		var cell0 = gc.getCell(cx0, cy0);
-		var cell1 = gc.getCell(cx1, cy1);
-		setLastMove(cell0, cell1);
-		if (cell1 == activeCell) makeInactive();
-		if (cell0.figure.w == w) {
-			setTurn(false);
-			makeInactive();
-		} else setTurn(true);
-		gc.moveFigure(cx0, cy0, cx1, cy1);
-		if (response.status == "stalemate") {
-			setStatus("game", "Stalemate", "#FF0", "bold");
-			makeInactive();
-		} else if (response.status == "check" || response.status == "checkmate") {
-			var victim = response.victim;
-			var cell = gc.getCell(victim[0], victim[1]);
-			cell.toggleCheck(true);
-			checked = cell;
-			if (response.winner != null) {
-				if (response.winner == w) {
-					setStatus("game", "You win!", "#006F00", "bold");
-					makeInactive();
-				} else if (response.winner != w) {
-					setStatus("game", "You lose!", "#F00", "bold");
-					makeInactive();
-				}
+	} else if (sessionStorage.getItem("sid") != null) {
+		sessionStorage.removeItem("sid");
+		sessionStorage.removeItem("uname");
+		remLastMove();
+	} else if (response.status == "inv_uname") {
+		alert("Your name contains invalid characters!");
+	} else if (response.status == "not_found") {
+		alert("Game with given session ID not found...");
+	} else if (response.status == "busy") {
+		alert("This game is busy...");
+	}
+}
+
+function peer_conn(response) {
+	if (!started) startGame();
+	setName("oname", response.name);
+	setStatus("game", "Ingame", "#006F00");
+}
+
+function get_paths(response) {
+	var paths = response.paths;
+	for (path of paths) {
+		var c = gc.getCell(path[0], path[1]);
+		c.makeActive("#520FFF");
+		affected.push(c);
+	}
+}
+
+function make_move(response) {
+	var cx0 = response.from[0];
+	var cy0 = response.from[1];
+	var cx1 = response.to[0];
+	var cy1 = response.to[1];
+	var cell0 = gc.getCell(cx0, cy0);
+	var cell1 = gc.getCell(cx1, cy1);
+	setLastMove(cell0, cell1);
+	if (cell1 == activeCell) makeInactive();
+	if (cell0.figure.w == w) {
+		setTurn(false);
+		makeInactive();
+	} else
+		setTurn(true);
+	gc.moveFigure(cx0, cy0, cx1, cy1);
+	if (response.status == "stalemate") {
+		setStatus("game", "Stalemate", "#FF0", "bold");
+		makeInactive();
+	} else if (response.status == "check" || response.status == "checkmate") {
+		var victim = response.victim;
+		var cell = gc.getCell(victim[0], victim[1]);
+		cell.toggleCheck(true);
+		checked = cell;
+		if (response.winner != null) {
+			if (response.winner == w) {
+				setStatus("game", "You win!", "#006F00", "bold");
+				makeInactive();
+			} else if (response.winner != w) {
+				setStatus("game", "You lose!", "#F00", "bold");
+				makeInactive();
 			}
-		} else if (checked != null) {
-			checked.toggleCheck(false);
-			checked = null;
 		}
-	} else if (response.action == "offer_draw") {
-		document.getElementById("draw_offer").style.display = "";
-	} else if (response.action == "offer_sent") {
+	} else if (checked != null) {
+		checked.toggleCheck(false);
+		checked = null;
+	}
+}
+
+function offer_sent(response) {
+	var offer_notification = document.getElementById("offer_notification");
+	offer_notification.textContent = "Waiting for opponent's response";
+	offer_notification.style.display = "";
+	offer_notification.style.color = "#000";
+	offer_notification.style.opacity = '100';
+}
+
+function offer_response(response) {
+	if (response.status == "deny") {
 		var offer_notification = document.getElementById("offer_notification");
-		offer_notification.textContent = "Waiting for opponent's response";
+		offer_notification.textContent = "Your opponent has denied your offer";
 		offer_notification.style.display = "";
-		offer_notification.style.color = "#000";
+		offer_notification.style.color = "#F00";
 		offer_notification.style.opacity = '100';
-	} else if (response.action == "offer_response") {
-		if (response.status == "deny") {
-			var offer_notification = document.getElementById("offer_notification");
-			offer_notification.textContent = "Your opponent has denied your offer";
-			offer_notification.style.display = "";
-			offer_notification.style.color = "#F00";
-			offer_notification.style.opacity = '100';
-			setTimeout(function() {fade(offer_notification)}, 3000);
-		} else if (response.status == "accept") {
-			var offer_notification = document.getElementById("offer_notification");
-			offer_notification.textContent = "Your opponent has accepted your offer";
-			offer_notification.style.display = "";
-			offer_notification.style.color = "#006F00";
-			offer_notification.style.opacity = '100';
-			setTimeout(function() {fade(offer_notification)}, 3000);
-			setStatus("game", "Draw", "#FF0", "bold");
-		}
-	} else if (response.action == "offer_received") {
-		if (response.status == "accept")
-			setStatus("game", "Draw", "#FF0", "bold");
-		document.getElementById("draw_offer").style.display = "none";
-	} else if (response.action == "load_past_game") {
-		if (response.status == "ok") {
-			setLeftPanelContent(2);
-			setStatus("game", "This is the past game", "#000", "bold");
-			document.getElementById("wsid").textContent = document.getElementById("sid_in").value;
-			document.getElementById("moves_count").textContent = response.moves.length;
-			loaded_history = response.moves;
-			history_index = 0;
-			startGame();
-		} else if (response.status == "failed") {
-			alert("Game with given session ID not found...");
-		}
+		setTimeout(function() {fade(offer_notification)}, 3000);
+	} else if (response.status == "accept") {
+		var offer_notification = document.getElementById("offer_notification");
+		offer_notification.textContent = "Your opponent has accepted your offer";
+		offer_notification.style.display = "";
+		offer_notification.style.color = "#006F00";
+		offer_notification.style.opacity = '100';
+		setTimeout(function() {fade(offer_notification)}, 3000);
+		setStatus("game", "Draw", "#FF0", "bold");
+	}
+}
+
+function offer_received(response) {
+	if (response.status == "accept")
+		setStatus("game", "Draw", "#FF0", "bold");
+	document.getElementById("draw_offer").style.display = "none";
+}
+
+function load_past_game(response) {
+	if (response.status == "ok") {
+		setLeftPanelContent(2);
+		setStatus("game", "This is the past game", "#000", "bold");
+		document.getElementById("wsid").textContent = document.getElementById("sid_in").value;
+		document.getElementById("moves_count").textContent = response.moves.length;
+		loaded_history = response.moves;
+		history_index = 0;
+		startGame();
+	} else if (response.status == "failed") {
+		alert("Game with given session ID not found...");
 	}
 }
 
